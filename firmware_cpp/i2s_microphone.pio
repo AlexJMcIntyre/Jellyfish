@@ -1,0 +1,56 @@
+.program i2s_microphone_mono_24
+.side_set 1        ; BCLK pin
+
+.wrap_target
+    set pins, 0        side 0      ; WS Low (Left Channel)
+    nop                side 1      ; I2S 1-bit delay
+    
+    set x, 23          side 0      ; Prepare to read exactly 24 bits
+left_bitloop:
+    in pins, 1         side 1      ; Sample 24 bits of audio
+    jmp x-- left_bitloop side 0    
+    
+    set x, 7           side 1      ; 8 bits of "ignored" padding in Left slot
+left_padding:
+    nop                side 0
+    jmp x-- left_padding side 1
+
+    set pins, 1        side 0      ; WS High (Right Channel)
+    set x, 31          side 1      ; Skip all 32 bits of Right Channel
+right_ignore_loop:
+    nop                side 0
+    jmp x-- right_ignore_loop side 1 
+.wrap
+
+% c-sdk {
+static inline void i2s_microphone_mono_24_program_init(
+    PIO pio,
+    uint sm,
+    uint offset,
+    uint bclk_pin,
+    uint data_pin
+) {
+    uint ws_pin = bclk_pin + 1;
+    
+    // Fixed: Added 'pio' as the first argument
+    pio_gpio_init(pio, bclk_pin);
+    pio_gpio_init(pio, ws_pin);
+    pio_gpio_init(pio, data_pin);
+
+    pio_sm_set_consecutive_pindirs(pio, sm, bclk_pin, 2, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, data_pin, 1, false); 
+
+    pio_sm_config c = i2s_microphone_mono_24_program_get_default_config(offset);
+    
+    sm_config_set_sideset_pins(&c, bclk_pin);
+    sm_config_set_set_pins(&c, ws_pin, 1);
+    sm_config_set_in_pins(&c, data_pin);
+
+    // Shift in MSB first (false), autopush (true) at 24 bits
+    sm_config_set_in_shift(&c, false, true, 24);
+
+    sm_config_set_clkdiv(&c, 32.0f);
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}
