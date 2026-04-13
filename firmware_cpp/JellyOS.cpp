@@ -7,6 +7,7 @@
 #include "hardware/clocks.h"
 #include "hardware/pwm.h"
 #include "hardware/dma.h"
+#include <algorithm>
 
 // Project Headers
 #include "ws2812.pio.h" 
@@ -72,6 +73,89 @@ public:
     }
 };
 
+class LED_String {
+    private:
+        PIO pio;
+        uint sm;
+        uint pin;
+        int32_t numLEDs;
+        
+        uint8_t* r;
+        uint8_t* g;
+        uint8_t* b;
+
+        void ws2812_init() {
+            uint offset = pio_add_program(pio, &ws2812_program);
+            pio_gpio_init(pio, pin);
+            pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, true);
+            
+            pio_sm_config c = ws2812_program_get_default_config(offset);
+            sm_config_set_sideset_pins(&c, pin);
+            sm_config_set_out_shift(&c, false, true, 24);
+            sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+            
+            float div = clock_get_hz(clk_sys) / (800000.0f * 10);
+            sm_config_set_clkdiv(&c, div);
+            
+            pio_sm_init(pio, sm, offset, &c);
+            pio_sm_set_enabled(pio, sm, true);
+        }
+
+    public:
+        LED_String(PIO pio_in, uint sm_in, uint pin_in, int32_t n) 
+            : pio(pio_in), sm(sm_in), pin(pin_in), numLEDs(n) 
+        {
+            r = new uint8_t[numLEDs];
+            g = new uint8_t[numLEDs];
+            b = new uint8_t[numLEDs];
+
+            // Initialize buffers to zero (black)
+            for(int i = 0; i < numLEDs; i++) {
+                r[i] = g[i] = b[i] = 0;
+            }
+
+            ws2812_init();
+        }
+        float decay = 0.8;
+        // The method to set values in Frame Buffer
+        void set_pixel_rgb(int index, uint8_t red, uint8_t green, uint8_t blue) {
+            if (index < numLEDs) {
+                r[index] = std::max(red, r[index]);
+                g[index] = std::max(green, g[index]);
+                b[index] = std::max(blue, b[index]);
+            }
+        }
+
+        void paint_string() {
+            for (int i = 0; i < numLEDs; i++) {
+                // Pack the bytes into the 24-bit GRB format WS2812 expects
+                uint32_t grb = ((uint32_t)(g[i]) << 16) | 
+                               ((uint32_t)(r[i]) << 8)  | 
+                                (uint32_t)(b[i]);
+                
+                pio_sm_put_blocking(pio, sm, grb << 8u);
+                g[i] = g[i] * decay;
+                r[i] = r[i] * decay;
+                b[i] = b[i] * decay;
+            }
+
+        }
+};
+
+
+// Initialize Audio on PIO0, state machine 0, BCLK=Pin16, WS = BCLK + 1, DIN=Pin18
+Audio audio(256, pio0, 0, 16, 18);
+
+// Initialize LEDs     
+LED_String ring(pio0, 1, 2, 96);
+LED_String spokes[] = {
+    LED_String(pio0, 2, 3, 12),
+    LED_String(pio0, 3,  4, 12),
+    LED_String(pio1, 0, 5, 12),
+    LED_String(pio1, 1, 6, 12)
+    };
+
+
 //helper for high pass filter
 int32_t high_pass_filter(int32_t sample) {
     float prev_sample = 0, filtered_val = 0;
@@ -79,7 +163,6 @@ int32_t high_pass_filter(int32_t sample) {
     const float alpha = 0.990f;
     float current_sample = (float)sample;
     if (!initialized) { prev_sample = current_sample; initialized = true; return 0; }
-    printf("you're wrong!");
     filtered_val = alpha * (filtered_val + current_sample - prev_sample);
     prev_sample = current_sample;
     return (int32_t)filtered_val;
@@ -150,31 +233,6 @@ void check_pir_sensor() {
     }
 }
 
-// Set up a WS2812 LED strip on a given pin, pio and state machine
-static inline void ws2812_init(PIO pio, uint sm, uint pin) {
-    // Some PIO wizardry to set up the state machine for driving WS2812 LEDs. Loads the program to the PIO if it's not already there, configures the pin, and sets the clock divider for 800kHz signal.
-    uint offset = pio_add_program(pio, &ws2812_program);
-    pio_gpio_init(pio, pin);
-    pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, true);
-    pio_sm_config c = ws2812_program_get_default_config(offset);
-    sm_config_set_sideset_pins(&c, pin);
-    sm_config_set_out_shift(&c, false, true, 24);
-    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
-    float div = clock_get_hz(clk_sys) / (800000.0f * 10);
-    sm_config_set_clkdiv(&c, div);
-    pio_sm_init(pio, sm, offset, &c);
-    pio_sm_set_enabled(pio, sm, true);
-}
-
-// Helper to push to a specific strip
-static inline void put_pixel_to_sm(PIO pio, uint sm, uint32_t grb) {
-    pio_sm_put_blocking(pio, sm, grb << 8u);
-}
-
-// GRB converter for pixels (takes three separate bytes for red, green, blue, and packs them into a single 32-bit integer)
-static inline uint32_t urgb_u32(uint8_t r, uint8_t g, uint8_t b) {
-    return ((uint32_t)(g) << 16) | ((uint32_t)(r) << 8) | (uint32_t)(b);
-}
 
 // FFT (Radix-2), takes an array of samples and transforms it in place to frequency bins.
 void fft(std::complex<float>* x, int n) {
@@ -227,11 +285,6 @@ void check_buttons() {
 
 // jellyfish hardware test
 
-// Global spoke buffer to store the ACTUAL current Red, Green, Blue of every LED
-// 4 spokes * 12 LEDs = 48 pixels. 3 colors each.
-static float spoke_canvas[4][12][3] = {0}; 
-static float spoke_levels[4] = {0};
-
 void fft_pattern_1(std::complex<float>* fft_results) {
     const float ring_gain = 800.0f;       
     const float spoke_gain = 200.0f;       
@@ -247,52 +300,52 @@ void fft_pattern_1(std::complex<float>* fft_results) {
     for (int i = 0; i < 96; i++) {
         float mag = std::abs(fft_results[i + 2]);
         uint8_t b = (mag * ring_gain > 30) ? 30 : (uint8_t)(mag * ring_gain);
-        put_pixel_to_sm(pio0, 1, urgb_u32(0, b/2, b));
+        ring.set_pixel_rgb(i, 0, b/2, b);
     }
+    ring.paint_string();
+    // // --- 2. SPOKES ---
+    // for (int s = 0; s < 4; s++) {
+    //     float raw_mag = std::abs(fft_results[s * 15 + 5]);
+    //     float target_h = 12.0f * log10f(raw_mag * spoke_gain + 1.0f);
 
-    // --- 2. SPOKES ---
-    for (int s = 0; s < 4; s++) {
-        float raw_mag = std::abs(fft_results[s * 15 + 5]);
-        float target_h = 12.0f * log10f(raw_mag * spoke_gain + 1.0f);
+    //     // Bar Physics
+    //     if (target_h > spoke_levels[s]) spoke_levels[s] = target_h;
+    //     else spoke_levels[s] -= decay_rate;
+    //     if (spoke_levels[s] < 0) spoke_levels[s] = 0;
 
-        // Bar Physics
-        if (target_h > spoke_levels[s]) spoke_levels[s] = target_h;
-        else spoke_levels[s] -= decay_rate;
-        if (spoke_levels[s] < 0) spoke_levels[s] = 0;
-
-        for (int i = 0; i < 12; i++) {
-            // Determine Target Colors for this LED based on height
-            float r_target = 0, g_target = 0, b_target = 0;
+    //     for (int i = 0; i < 12; i++) {
+    //         // Determine Target Colors for this LED based on height
+    //         float r_target = 0, g_target = 0, b_target = 0;
             
-            if (i < spoke_levels[s]) {
-                // Calculate "Full" color for this LED index
-                if (i < 5) { g_target = 25 - (i*3); b_target = 40; } // Cyan/Blue
-                else if (i < 9) { r_target = (i-5)*10; b_target = 30; } // Purple
-                else { r_target = 40; b_target = 10; } // Red
+    //         if (i < spoke_levels[s]) {
+    //             // Calculate "Full" color for this LED index
+    //             if (i < 5) { g_target = 25 - (i*3); b_target = 40; } // Cyan/Blue
+    //             else if (i < 9) { r_target = (i-5)*10; b_target = 30; } // Purple
+    //             else { r_target = 40; b_target = 10; } // Red
 
-                // Partial brightness for the very top pixel
-                float remainder = spoke_levels[s] - i;
-                if (remainder < 1.0f) {
-                    r_target *= remainder;
-                    g_target *= remainder;
-                    b_target *= remainder;
-                }
-            }
+    //             // Partial brightness for the very top pixel
+    //             float remainder = spoke_levels[s] - i;
+    //             if (remainder < 1.0f) {
+    //                 r_target *= remainder;
+    //                 g_target *= remainder;
+    //                 b_target *= remainder;
+    //             }
+    //         }
 
-            // --- THE GHOSTING MATH ---
-            // If the current target is brighter than the canvas, jump to it.
-            // If the canvas is brighter, fade it out slowly.
-            spoke_canvas[s][i][0] = fmaxf(r_target, spoke_canvas[s][i][0] * ghost_decay);
-            spoke_canvas[s][i][1] = fmaxf(g_target, spoke_canvas[s][i][1] * ghost_decay);
-            spoke_canvas[s][i][2] = fmaxf(b_target, spoke_canvas[s][i][2] * ghost_decay);
+    //         // --- THE GHOSTING MATH ---
+    //         // If the current target is brighter than the canvas, jump to it.
+    //         // If the canvas is brighter, fade it out slowly.
+    //         spoke_canvas[s][i][0] = fmaxf(r_target, spoke_canvas[s][i][0] * ghost_decay);
+    //         spoke_canvas[s][i][1] = fmaxf(g_target, spoke_canvas[s][i][1] * ghost_decay);
+    //         spoke_canvas[s][i][2] = fmaxf(b_target, spoke_canvas[s][i][2] * ghost_decay);
 
-            put_pixel_to_sm(spokes[s].p, spokes[s].sm, urgb_u32(
-                (uint8_t)spoke_canvas[s][i][0], 
-                (uint8_t)spoke_canvas[s][i][1], 
-                (uint8_t)spoke_canvas[s][i][2]
-            ));
-        }
-    }
+    //         put_pixel_to_sm(spokes[s].p, spokes[s].sm, urgb_u32(
+    //             (uint8_t)spoke_canvas[s][i][0], 
+    //             (uint8_t)spoke_canvas[s][i][1], 
+    //             (uint8_t)spoke_canvas[s][i][2]
+    //         ));
+    //     }
+    // }
 }
 
 // --- Main Loop ---
@@ -303,19 +356,7 @@ int main() {
 
     //start the loops off doing their thing.
     init_dumb_leds();
-    
-    // Initialize Audio on PIO0, state machine 0, BCLK=Pin16, WS = BCLK + 1, DIN=Pin18
-    Audio audio(256, pio0, 0, 16, 18);
-    //audio_input_init(pio0, 0, 16, 18);
-
-    // Initialize LEDs     
-    ws2812_init(pio0, 1, 2);  // Pin 2, the ring
-
-    ws2812_init(pio0, 2, 3);  // Pin 3, spoke 1
-    ws2812_init(pio0, 3, 4);  // Pin 4, spoke 2
-    ws2812_init(pio1, 0, 5);  // Pin 5, spoke 3
-    ws2812_init(pio1, 1, 6);  // Pin 6, spoke 4
-
+      
     //motion sensor
     init_pir_sensor();
     
