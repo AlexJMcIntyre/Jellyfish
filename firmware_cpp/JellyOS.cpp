@@ -2,12 +2,13 @@
 #include <stdlib.h>
 #include <math.h>
 #include <complex>
+#include <algorithm>
+#include <cstdlib>
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include "hardware/clocks.h"
 #include "hardware/pwm.h"
 #include "hardware/dma.h"
-#include <algorithm>
 
 // Project Headers
 #include "ws2812.pio.h" 
@@ -100,6 +101,36 @@ class LED_String {
             pio_sm_init(pio, sm, offset, &c);
             pio_sm_set_enabled(pio, sm, true);
         }
+        
+        // Helper to add colors without "wrapping" over 255
+        uint8_t qadd(uint8_t existing, uint8_t adding) {
+            uint16_t sum = existing + adding;
+            return (sum > 255) ? 255 : (uint8_t)sum;
+        }        
+
+        void hsv_to_rgb(float h, float s, float v, uint8_t& out_r, uint8_t& out_g, uint8_t& out_b) {
+            float r, g, b;
+
+            // H is expected to be 0-360, S and V are 0.0-1.0
+            int i = (int)(h / 60.0f) % 6;
+            float f = (h / 60.0f) - (int)(h / 60.0f);
+            float p = v * (1.0f - s);
+            float q = v * (1.0f - f * s);
+            float t = v * (1.0f - (1.0f - f) * s);
+
+            switch (i) {
+                case 0: r = v; g = t; b = p; break;
+                case 1: r = q; g = v; b = p; break;
+                case 2: r = p; g = v; b = t; break;
+                case 3: r = p; g = q; b = v; break;
+                case 4: r = t; g = p; b = v; break;
+                case 5: r = v; g = p; b = q; break;
+            }
+
+            out_r = (uint8_t)(r * 255);
+            out_g = (uint8_t)(g * 255);
+            out_b = (uint8_t)(b * 255);
+        }
 
     public:
         LED_String(PIO pio_in, uint sm_in, uint pin_in, int32_t n) 
@@ -126,7 +157,19 @@ class LED_String {
             }
         }
 
+        void set_pixel_hsv(int index, float h, float s, float v) {
+            if (index < numLEDs) {
+                uint8_t r_new, g_new, b_new; 
+                hsv_to_rgb(h, s, v, r_new, g_new, b_new);
+
+                r[index] = std::max(r_new, r[index]);
+                g[index] = std::max(g_new, g[index]);
+                b[index] = std::max(b_new, b[index]);
+            }
+        }
+
         void paint_string() {
+            process_pulses();
             for (int i = 0; i < numLEDs; i++) {
                 // Pack the bytes into the 24-bit GRB format WS2812 expects
                 uint32_t grb = ((uint32_t)(g[i]) << 16) | 
@@ -140,8 +183,91 @@ class LED_String {
             }
 
         }
+        class Pulse{
+            private:
+            public:
+                bool active;
+                float position;
+                float width;
+                float speed;
+                float h,s,v;
+                Pulse() : position(0), speed(0), h(0), s(0), v(0)  {}
+
+        };
+        static const int MAX_PULSES = 10; // Cap the number of pulses
+        Pulse pulse_pool[MAX_PULSES];
+
+        void add_pulse_hsv(float speed, float h, float s, float v, float width) {
+            for (int i = 0; i < MAX_PULSES; i++) {
+                if (!pulse_pool[i].active) {
+                    pulse_pool[i].active = true;
+                    pulse_pool[i].position = 0.0f; // Start at index 0
+                    pulse_pool[i].speed = speed;
+                    pulse_pool[i].h = h;
+                    pulse_pool[i].s = s;
+                    pulse_pool[i].v = v;
+                    pulse_pool[i].width = width;
+                    return; 
+                }
+            }
+        }
+
+
+       void render_pulse_to_strip(const Pulse& p) {
+            uint8_t r_base, g_base, b_base; 
+            hsv_to_rgb(p.h, p.s, p.v, r_base, g_base, b_base);
+
+            // Look at pixels within the 'width' range
+            int start = (int)(p.position - p.width);
+            int end   = (int)(p.position + p.width);
+
+            for (int i = start; i <= end; i++) {
+                if (i >= 0 && i < numLEDs) {
+                    // 1. Calculate distance from the exact float position (0.0 to p.width)
+                    float distance = fabsf(i - p.position);
+                    
+                    // 2. Create a linear falloff (1.0 at center, 0.0 at edges)
+                    // For a "smoother" curve, you could use: 1.0f - (distance*distance)/(width*width)
+                    float intensity = 1.0f - (distance / p.width);
+                    
+                    if (intensity > 0) {
+                        // 3. Scale the base colors by the intensity
+                        uint8_t r_final = (uint8_t)(r_base * intensity);
+                        uint8_t g_final = (uint8_t)(g_base * intensity);
+                        uint8_t b_final = (uint8_t)(b_base * intensity);
+
+                        // 4. Use your max logic to gate the brightness
+                        r[i] = std::max(r_final, r[i]);
+                        g[i] = std::max(g_final, g[i]);
+                        b[i] = std::max(b_final, b[i]);
+                    }
+                }
+            }
+        }
+        void process_pulses(float deltaTime = 1) {
+            for (int i = 0; i < MAX_PULSES; i++) {
+                if (pulse_pool[i].active) {
+                    // A. Move it
+                    pulse_pool[i].position += pulse_pool[i].speed * deltaTime;
+
+                    // B. Check if it's "dead"
+                    if (pulse_pool[i].position >= numLEDs || pulse_pool[i].position < 0) {
+                        pulse_pool[i].active = false;
+                        continue;
+                    }
+
+                    // C. Draw it (using your blending function)
+                    render_pulse_to_strip(pulse_pool[i]);
+                }
+            }
+        }
+
 };
 
+float get_rand(float min, float max) {
+    float r = min + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (max - min)));
+    return r;
+}
 
 // Initialize Audio on PIO0, state machine 0, BCLK=Pin16, WS = BCLK + 1, DIN=Pin18
 Audio audio(256, pio0, 0, 16, 18);
@@ -302,7 +428,6 @@ void fft_pattern_1(std::complex<float>* fft_results) {
         uint8_t b = (mag * ring_gain > 30) ? 30 : (uint8_t)(mag * ring_gain);
         ring.set_pixel_rgb(i, 0, b/2, b);
     }
-    ring.paint_string();
     // // --- 2. SPOKES ---
     // for (int s = 0; s < 4; s++) {
     //     float raw_mag = std::abs(fft_results[s * 15 + 5]);
@@ -399,6 +524,19 @@ int main() {
 
         // Render to Jellfish
         fft_pattern_1(fft_buffer);
+
+        
+        ring.paint_string();
+
+        for (int i=0; i<4; i++) {
+            if ((rand() % 60) == 0) {
+                float random_hue = (float)(rand() % 100)+170;
+                float random_speed = get_rand(0.01, 0.5);
+                spokes[i].add_pulse_hsv(random_speed, random_hue, 1.0f, 1.0f, 2.0f);
+            }
+            spokes[i].paint_string();
+
+        }
 
         //update the loop leds 
         update_dumb_leds();
