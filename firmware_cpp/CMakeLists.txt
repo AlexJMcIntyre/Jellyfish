@@ -23,13 +23,13 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico CACHE STRING "Board type")
+set(PICO_BOARD pico2_w CACHE STRING "Board type")
+
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
 project(JellyOS C CXX ASM)
-
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
@@ -38,11 +38,14 @@ pico_sdk_init()
 
 add_executable(JellyOS 
     JellyOS.cpp
-   )
+    jell_led.cpp 
+    jell_audio.cpp
+    jell_canvas.cpp
+    jell_effects.cpp
+    )
 
-
-pico_generate_pio_header(JellyOS ${CMAKE_CURRENT_LIST_DIR}/i2s_microphone.pio)
 pico_generate_pio_header(JellyOS ${CMAKE_CURRENT_LIST_DIR}/ws2812.pio)
+pico_generate_pio_header(JellyOS ${CMAKE_CURRENT_LIST_DIR}/i2s_microphone.pio)
 
 pico_set_program_name(JellyOS "JellyOS")
 pico_set_program_version(JellyOS "0.1")
@@ -51,20 +54,26 @@ pico_set_program_version(JellyOS "0.1")
 pico_enable_stdio_uart(JellyOS 0)
 pico_enable_stdio_usb(JellyOS 1)
 
-
 # Add the standard library to the build
 target_link_libraries(JellyOS
         pico_stdlib
-        hardware_dma
         hardware_pio
+        pico_multicore
         hardware_pwm
+        hardware_dma
         )
-
 
 # Add the standard include files to the build
 target_include_directories(JellyOS PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
 )
 
+# Add any user requested libraries
+target_link_libraries(JellyOS 
+        #pico_cyw43_arch_lwip_poll
+        #pico_cyw43_arch_lwip_threadsafe_background
+        )
+
 pico_add_extra_outputs(JellyOS)
+
 
