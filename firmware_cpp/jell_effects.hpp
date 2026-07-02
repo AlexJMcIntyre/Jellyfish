@@ -5,3 +5,6 @@
 void effect_solid_level(
     Canvas& canvas,
     const AudioFrame& audio);
+
+void effect_output_test(Canvas& canvas);
+    

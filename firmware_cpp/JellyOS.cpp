@@ -10,6 +10,16 @@
 #include "jell_canvas.hpp"
 #include "jell_effects.hpp"
 
+//modes
+enum class DisplayMode {
+    SolidLevel,
+    OutputTest,
+
+    Count
+};
+
+volatile DisplayMode display_mode = DisplayMode::SolidLevel;
+
 
 // --- Global State ---
 // Initialize LEDs     
@@ -34,22 +44,52 @@ Microphone mic(256);
 
 Canvas canvas(ring, spokes, noodles);
 
-volatile int display_mode = 0;
+//buttons
+constexpr uint BUTTON_PREV = 19;
+constexpr uint BUTTON_NEXT = 20;
+
+//button helpers
+void next_mode()
+{
+    int mode = static_cast<int>(display_mode);
+    mode = (mode + 1) % static_cast<int>(DisplayMode::Count);
+    display_mode = static_cast<DisplayMode>(mode);
+}
+
+void previous_mode()
+{
+    int mode = static_cast<int>(display_mode);
+    mode = (mode - 1 + static_cast<int>(DisplayMode::Count))
+            % static_cast<int>(DisplayMode::Count);
+    display_mode = static_cast<DisplayMode>(mode);
+}
+
+
 
 // --- Main ---
 
 // This runs ONLY on Core 1
-void core1_entry() {
-    while (true) {
-        if (display_mode == 0) {
+void core1_entry()
+{
+    while (true)
+    {
+        switch (display_mode)
+        {
+            case DisplayMode::SolidLevel:
+            {
+                AudioFrame audio = mic.capture();
+                printf(">Level: %f, RMS: %f, RMS_Min: %f, RMS_Max: %f, smoothed_peak: %f, smoothed_level: %f\n", audio.level, audio.rms, audio.rms_min, audio.rms_max, audio.smoothed_peak, audio.smoothed_level);
 
-            AudioFrame audio = mic.capture();
+                effect_solid_level(canvas, audio);
+                break;
+            }
 
-            effect_solid_level(
-                canvas,
-                audio);
+            case DisplayMode::OutputTest:
+                effect_output_test(canvas);
+                break;
 
-
+            default:
+                break;
         }
     }
 }
@@ -64,6 +104,15 @@ int main() {
     0,
     16,
     18);
+
+    gpio_init(BUTTON_PREV);
+    gpio_set_dir(BUTTON_PREV, GPIO_IN);
+    gpio_pull_up(BUTTON_PREV);
+
+    gpio_init(BUTTON_NEXT);
+    gpio_set_dir(BUTTON_NEXT, GPIO_IN);
+    gpio_pull_up(BUTTON_NEXT);
+
     
     // Map LEDs to 3D/Spatial coordinates
     // Map LEDs around a unit circle
@@ -86,9 +135,24 @@ int main() {
 
     multicore_launch_core1(core1_entry);
     
+    bool last_prev = false;
+    bool last_next = false;
+
     while (true)
     {
-        tight_loop_contents();
+        bool prev = !gpio_get(BUTTON_PREV);
+        bool next = !gpio_get(BUTTON_NEXT);
+
+        if (prev && !last_prev)
+            previous_mode();
+
+        if (next && !last_next)
+            next_mode();
+
+        last_prev = prev;
+        last_next = next;
+
+        sleep_ms(20);
     }
   
 }

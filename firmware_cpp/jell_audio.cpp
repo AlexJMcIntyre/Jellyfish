@@ -135,59 +135,49 @@ AudioFrame Microphone::capture()
     // Calculate RMS
     frame.rms = sqrtf((float)sum_of_squares / frame.sample_count);
 
-  // --- UPDATED AUTO-GAIN AND LEVEL NORMALIZATION ---
-
-    // 1. Smooth out the AGC boundaries
-    const float attack_rate = 0.05f;   
-    const float decay_rate  = 0.002f;  
+    float decay_rate = 0.002f;
 
     if (frame.rms > rms_max)
-        rms_max += (frame.rms - rms_max) * attack_rate;
+        rms_max = frame.rms;
     else
-        rms_max -= (rms_max - frame.rms) * decay_rate;
+        rms_max += (frame.rms - rms_max) * decay_rate;
 
     if (frame.rms < rms_min)
-        rms_min -= (rms_min - frame.rms) * attack_rate;
+        rms_min = frame.rms;
     else
         rms_min += (frame.rms - rms_min) * decay_rate;
 
-    // FIX 1: Prevent AGC collapse. 
-    // Do not let the window shrink smaller than a typical music dynamic range floor.
-    // Since your quiet room noise floor fluctuates up to ~5000, a floor of 15000.0f keeps it stable.
-    if ((rms_max - rms_min) < 15000.0f) {
-        rms_max = rms_min + 15000.0f;
-    }
+    frame.level = (frame.rms - rms_min) / (rms_max - rms_min);
 
-    // Also place an absolute floor on rms_max so it never loops into pure silence tracking
-    if (rms_max < 20000.0f) {
-        rms_max = 20000.0f;
-    }
+    // Clamp the adaptive range
+    if (rms_min > 64000.0f)
+        rms_min = 64000.0f;
 
-    // 2. Map the current frame RMS to a 0.0 - 1.0 linear window
-    float linear_level = (frame.rms - rms_min) / (rms_max - rms_min);
-    if (linear_level < 0.0f) linear_level = 0.0f;
-    if (linear_level > 1.0f) linear_level = 1.0f;
+    if (rms_max < 90000.0f)
+        rms_max = 90000.0f;
 
-    // FIX 2: Soft Noise Gate / Squelch
-    // If the signal is within the lower weeds of the tracking floor, aggressively push it to zero.
-    if (frame.rms < (rms_min + 2500.0f)) {
-        linear_level *= 0.1f; // Squashes trailing background hum smoothly
-        if (frame.rms < (rms_min + 1000.0f)) {
-            linear_level = 0.0f; // Absolute silence gate
-        }
-    }
+    float level_decay = 0.99f;
+    if (frame.level > smoothed_level)
+        smoothed_level = frame.level;
+    else
+        smoothed_level = smoothed_level*level_decay;
 
-    // 3. Logarithmic Perceptual Mapping (Simulated Decibel response)
-    float target_level = log10f(1.0f + 9.0f * linear_level);
+    if (smoothed_level < 0.05)
+        smoothed_level = 0.05f;
 
-    // FIX 3: Temporal Envelope Smoothing
-    // Pure frame-to-frame levels look erratic on LEDs. We use an asymmetric filter
-    // (fast attack to catch beats instantly, slower decay for smooth transitions).
-    float level_filter = (target_level > smoothed_level) ? 0.40f : 0.08f;
-    smoothed_level += (target_level - smoothed_level) * level_filter;
-
-    frame.level = smoothed_level;
-
+        
+    float peak_decay = 0.99f;
+    if ((frame.level > smoothed_peak) and (frame.level > 0.5))
+        smoothed_peak = frame.level;
+    else
+        smoothed_peak = smoothed_peak*peak_decay;
+        
+    //copy persistant mic data for returrn in frame
+    frame.rms_min = rms_min;
+    frame.rms_max = rms_max;
+    frame.smoothed_peak = smoothed_peak;
+    frame.smoothed_level = smoothed_level;
+   
     return frame;
 
 }

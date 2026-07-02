@@ -10,7 +10,11 @@ struct AudioFrame
     int32_t mean;
     float rms;
     float level;
-    int32_t peak;
+
+    float rms_min; //temp copies for graphing
+    float rms_max; 
+    float smoothed_peak;
+    float smoothed_level;
 };
 
 class Microphone
@@ -28,6 +32,11 @@ public:
     AudioFrame capture();
 
     int get_sample_size() const;
+
+    float rms_min = 64000.0f;
+    float rms_max = 90000.0f;
+    float smoothed_peak = 0.0f;
+    float smoothed_level = 0.0f;
 
 
 private:
@@ -48,7 +57,4 @@ private:
     uint audio_sm;
     PIO audio_pio;
 
-    float rms_min = 2000.0f;
-    float rms_max = 12000.0f;
-    float smoothed_level = 0.0f; 
 };
