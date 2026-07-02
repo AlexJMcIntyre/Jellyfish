@@ -47,6 +47,8 @@ private:
 
     uint audio_sm;
     PIO audio_pio;
+
     float rms_min = 2000.0f;
     float rms_max = 12000.0f;
+    float smoothed_level = 0.0f; 
 };

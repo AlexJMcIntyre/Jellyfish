@@ -2,24 +2,23 @@
 .side_set 1        ; BCLK pin
 
 .wrap_target
-    set pins, 0        side 0      ; WS Low (Left Channel)
-    nop                side 1      ; I2S 1-bit delay
-    
-    set x, 23          side 0      ; Prepare to read exactly 24 bits
+    set pins, 0        side 0      ; [1] WS Low (Left Channel starts), BCLK=0
+    nop                side 1      ; [2] I2S 1-bit delay part 1, BCLK=1
+    set x, 23          side 0      ; [3] I2S 1-bit delay part 2, BCLK=0
 left_bitloop:
-    in pins, 1         side 1      ; Sample 24 bits of audio
-    jmp x-- left_bitloop side 0    
+    in pins, 1         side 1      ; [4-51] Sample 24 bits of audio on BCLK high
+    jmp x-- left_bitloop side 0    ; Total loop takes 48 instructions
     
-    set x, 7           side 1      ; 8 bits of "ignored" padding in Left slot
+    set x, 5           side 1      ; [52] Prepare padding loop, BCLK=1
 left_padding:
-    nop                side 0
-    jmp x-- left_padding side 1
+    nop                side 0      ; [53-64] 6 iterations of 2 instructions = 12 total
+    jmp x-- left_padding side 1    ; Left phase ends exactly on instruction 64 (BCLK=1)
 
-    set pins, 1        side 0      ; WS High (Right Channel)
-    set x, 31          side 1      ; Skip all 32 bits of Right Channel
+    set pins, 1        side 0      ; [1] WS High (Right Channel starts), BCLK=0
+    set x, 30          side 1      ; [2] Prepare to skip 32 bits, BCLK=1
 right_ignore_loop:
-    nop                side 0
-    jmp x-- right_ignore_loop side 1 
+    nop                side 0      ; [3-64] 31 iterations of 2 instructions = 62 total
+    jmp x-- right_ignore_loop side 1 ; Right phase ends exactly on instruction 64 (BCLK=1)
 .wrap
 
 % c-sdk {
