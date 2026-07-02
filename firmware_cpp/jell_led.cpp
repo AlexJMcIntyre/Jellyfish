@@ -251,7 +251,7 @@ void LED_String::paint_string() {
         // Clean up: if it's basically dark, kill it to prevent "ghosting"
         if (v_buf[i] < 0.001f) v_buf[i] = 0.0f;
     }
-    sleep_us(400);
+    sleep_us(100);
 }
 
 
