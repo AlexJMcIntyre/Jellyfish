@@ -5,23 +5,8 @@ void effect_solid_level(
     Canvas& canvas,
     const AudioFrame& audio)
 {
-
-    for (int i = 0; i < 96; i++)
-    {
-        canvas.ring_pixel_hsv(
-            i,
-            220.0f,
-            1.0f,
-            audio.smoothed_level);
-    }
-
-    for (int i=0; i < 4; i++)
-    {
-        for (int j = 0; j < 12; j++)
-            canvas.spoke_pixel_hsv(i, j, 220.0f, 1.0f, audio.smoothed_level);
-        canvas.noodle_level(i,audio.smoothed_level);
-    }
-
+    canvas.all_pixels_hsv(220.0f, 1.0f, audio.smoothed_level);
+    canvas.all_noodles_level(audio.smoothed_level);       
     canvas.show();
 }
 
@@ -35,31 +20,13 @@ void effect_output_test(Canvas& canvas)
         state++;
 
     if (state% 3 == 0) {
-        for (int i = 0; i < 96; i++)
-            canvas.ring_pixel_hsv(i, 0.0f, 1.0f, 1.0f);
-        for (int i = 0; i < 4; i++) {
-            for (int j=0; j<12; j++) {
-                canvas.spoke_pixel_hsv(i, j, 0.0f, 1.0f, 1.0f);
-            }
-        }
+        canvas.all_pixels_hsv(0.0f, 1.0f, 1.0f);
     }
     else if (state% 3 == 1) {
-        for (int i = 0; i < 96; i++)
-            canvas.ring_pixel_hsv(i, 120.0f, 1.0f, 1.0f);
-        for (int i = 0; i < 4; i++) {
-            for (int j=0; j<12; j++) {
-                canvas.spoke_pixel_hsv(i, j, 120.0f, 1.0f, 1.0f);
-            }
-        }
+        canvas.all_pixels_hsv(120.0f, 1.0f, 1.0f);
     }
     else if (state% 3 == 2) {
-        for (int i = 0; i < 96; i++)
-            canvas.ring_pixel_hsv(i, 240.0f, 1.0f, 1.0f);
-        for (int i = 0; i < 4; i++) {
-            for (int j=0; j<12; j++) {
-                canvas.spoke_pixel_hsv(i, j, 240.0f, 1.0f, 1.0f);
-            }
-        }
+        canvas.all_pixels_hsv(240.0f, 1.0f, 1.0f);
     }
     
 
@@ -88,5 +55,47 @@ void effect_output_test(Canvas& canvas)
         canvas.noodle_level(3, 1.0f);
     }
     frame ++;
+    canvas.show();
+}
+
+void noise_test(Canvas& canvas, const AudioFrame& audio, float time)
+{
+    for (int i = 0; i < 96; i++)
+    {
+        Point3 p = canvas.ring_position(i);
+
+        float n = Field::noise(p, 1.0f, audio.smoothed_level + time*.3);
+
+        canvas.ring_pixel_hsv(
+            i,
+            220.0f + (n*n*100),
+            1.0f,
+            audio.smoothed_level);
+    }
+
+    for (int s = 0; s < 4; s++)
+    {
+        for (int i = 0; i < 12; i++)
+        {
+            Point3 p = canvas.spoke_position(s, i);
+
+            float n = Field::noise(p, 0.5f, audio.smoothed_level + time*.3);
+
+            canvas.spoke_pixel_hsv(
+                s,
+                i,
+                220.0f + (n*n*100),
+                1.0f,
+                audio.smoothed_level);
+        }
+    }
+
+    float pwml = audio.smoothed_level * 2;
+    
+    if (pwml > 1.0f)
+        pwml = 1.0f;
+    
+    canvas.all_noodles_level(pwml);
+
     canvas.show();
 }

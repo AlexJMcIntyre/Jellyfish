@@ -14,11 +14,12 @@
 enum class DisplayMode {
     SolidLevel,
     OutputTest,
+    noise_test,
 
     Count
 };
 
-volatile DisplayMode display_mode = DisplayMode::SolidLevel;
+volatile DisplayMode display_mode = DisplayMode::noise_test;
 
 
 // --- Global State ---
@@ -85,8 +86,18 @@ void core1_entry()
             }
 
             case DisplayMode::OutputTest:
+            {
                 effect_output_test(canvas);
                 break;
+            }
+
+            case DisplayMode::noise_test:
+            {   
+                AudioFrame audio = mic.capture();
+                float time = time_us_64() * 1e-6f;
+                noise_test(canvas, audio, time);
+                break;
+            }
 
             default:
                 break;
