@@ -40,6 +40,8 @@ public:
             int noodle,
             float level);
 
+        Point3 noodle_position(int noodle);
+
         void all_pixels_hsv(
             float h,
             float s,

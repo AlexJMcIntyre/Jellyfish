@@ -12,14 +12,16 @@
 
 //modes
 enum class DisplayMode {
-    SolidLevel,
-    OutputTest,
-    noise_test,
+    micLevelCheck,
+    LEDChannelTest,
+    Mic_NField,
+    Ambient_Rainbow,   
+    Ambient_Deepsea,
 
     Count
 };
 
-volatile DisplayMode display_mode = DisplayMode::noise_test;
+volatile DisplayMode display_mode = DisplayMode::Ambient_Deepsea;
 
 
 // --- Global State ---
@@ -76,26 +78,40 @@ void core1_entry()
     {
         switch (display_mode)
         {
-            case DisplayMode::SolidLevel:
+            case DisplayMode::micLevelCheck:
             {
                 AudioFrame audio = mic.capture();
                 printf(">Level: %f, RMS: %f, RMS_Min: %f, RMS_Max: %f, smoothed_peak: %f, smoothed_level: %f\n", audio.level, audio.rms, audio.rms_min, audio.rms_max, audio.smoothed_peak, audio.smoothed_level);
 
-                effect_solid_level(canvas, audio);
+                effect_miclevelCheck(canvas, audio);
                 break;
             }
 
-            case DisplayMode::OutputTest:
+            case DisplayMode::LEDChannelTest:
             {
-                effect_output_test(canvas);
+                effect_LEDchanneltest(canvas);
                 break;
             }
 
-            case DisplayMode::noise_test:
+            case DisplayMode::Mic_NField:
             {   
                 AudioFrame audio = mic.capture();
                 float time = time_us_64() * 1e-6f;
-                noise_test(canvas, audio, time);
+                effect_micNField(canvas, audio, time);
+                break;
+            }
+
+            case DisplayMode::Ambient_Rainbow:
+            {
+                float time = time_us_64() * 1e-6f;
+                effect_ambientNField(canvas, time, 1.0f, 220.0f, 360.0f, 0.15f);
+                break;
+            }
+
+            case DisplayMode::Ambient_Deepsea:
+            {
+                float time = time_us_64() * 1e-6f;
+                effect_ambientNField(canvas, time, 2.0f, 220.0f, 100.0f, 0.8f);
                 break;
             }
 

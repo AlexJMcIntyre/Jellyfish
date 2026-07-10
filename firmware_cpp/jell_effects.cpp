@@ -1,7 +1,8 @@
 #include "jell_effects.hpp"
 #include "math.h"
+#include "stdio.h"
 
-void effect_solid_level(
+void effect_miclevelCheck(
     Canvas& canvas,
     const AudioFrame& audio)
 {
@@ -11,7 +12,7 @@ void effect_solid_level(
 }
 
 
-void effect_output_test(Canvas& canvas)
+void effect_LEDchanneltest(Canvas& canvas)
 {
     static int frame = 0;
     static int state = 0;
@@ -58,7 +59,7 @@ void effect_output_test(Canvas& canvas)
     canvas.show();
 }
 
-void noise_test(Canvas& canvas, const AudioFrame& audio, float time)
+void effect_micNField(Canvas& canvas, const AudioFrame& audio, float time)
 {
     for (int i = 0; i < 96; i++)
     {
@@ -96,6 +97,57 @@ void noise_test(Canvas& canvas, const AudioFrame& audio, float time)
         pwml = 1.0f;
     
     canvas.all_noodles_level(pwml);
+
+    canvas.show();
+}
+
+void effect_ambientNField(Canvas& canvas, float time, float noisescale, float huebase, float huerange, float timescale)
+{
+    //float noisescale = 1.0f;
+    float field_offset = 1000.0;
+    //float huebase = 220.0f;
+    //float huerange = 360.0f;
+    //float timescale = 0.1f;
+
+    for (int i = 0; i < 96; i++)
+    {
+        Point3 p = canvas.ring_position(i);
+
+        float f_b = Field::noise(p, noisescale, time* timescale);
+        float f_h = Field::noise({p.x + field_offset, p.y, p.z}, noisescale, time* timescale);
+
+        canvas.ring_pixel_hsv(
+            i,
+            huebase + (f_h*f_h-0.5)*huerange,
+            1.0f,
+            f_b);
+    }
+
+    for (int s = 0; s < 4; s++)
+    {
+        for (int i = 0; i < 12; i++)
+        {
+            Point3 p = canvas.spoke_position(s, i);
+
+            float f_b = Field::noise(p, noisescale, time*timescale);
+            float f_h = Field::noise({p.x + field_offset, p.y, p.z}, noisescale, time*timescale);
+
+            canvas.spoke_pixel_hsv(
+                
+                s,
+                i,
+                huebase + (f_h*f_h-0.5)*huerange,
+                1.0f,
+                f_b);
+        }
+
+        Point3 np = canvas.noodle_position(s);
+
+        float f_b = Field::noise(np, noisescale, time*timescale);
+
+
+        canvas.noodle_level(s, (f_b *.6f) + 0.4f);
+    }
 
     canvas.show();
 }

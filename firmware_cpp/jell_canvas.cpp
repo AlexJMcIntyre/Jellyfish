@@ -156,3 +156,12 @@ void Canvas::noodle_level(int noodle, float level)
 {
     noodles[noodle].set_level(level);
 }
+
+Point3 Canvas::noodle_position(int noodle)
+{
+    return {
+        noodles[noodle].get_x(),
+        noodles[noodle].get_y(),
+        noodles[noodle].get_z()
+    };
+}
