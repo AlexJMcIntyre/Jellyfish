@@ -27,12 +27,12 @@ volatile DisplayMode display_mode = DisplayMode::Ambient_Deepsea;
 // --- Global State ---
 // Initialize LEDs     
 
-LED_String ring(pio0, 1, 2, 96);
+LED_String ring(pio0, 1, 2, 96, ColourOrder::RGB);
 LED_String spokes[] = {
-    LED_String(pio0, 2, 3, 12),
-    LED_String(pio0, 3,  4, 12),
-    LED_String(pio1, 0, 5, 12),
-    LED_String(pio1, 1, 6, 12)
+    LED_String(pio0, 2, 3, 12, ColourOrder::RGB),
+    LED_String(pio0, 3, 4, 12, ColourOrder::RGB),
+    LED_String(pio1, 0, 5, 12, ColourOrder::RGB),
+    LED_String(pio1, 1, 6, 12, ColourOrder::RGB)
     };
 
 PWM_Light noodles[] = {

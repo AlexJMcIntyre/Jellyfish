@@ -22,11 +22,17 @@
 //     float v_vel;        // <--- New: Change in Brightness per second
 // };
 
+enum class ColourOrder {
+    RGB,
+    GRB
+};
+
+
 class LED_String {
 public:
  
 
-    LED_String(PIO pio_in, uint sm_in, uint pin_in, int32_t n);
+    LED_String(PIO pio_in, uint sm_in, uint pin_in, int32_t n, ColourOrder colour_order);
     ~LED_String(); // clean up memory
 
     
@@ -62,6 +68,10 @@ private:
     uint sm;
     uint pin;
     int32_t numLEDs;
+
+    ColourOrder colour_order = ColourOrder::GRB;
+
+
     float *h_buf, *s_buf, *v_buf; 
 
     // Coordinate buffers

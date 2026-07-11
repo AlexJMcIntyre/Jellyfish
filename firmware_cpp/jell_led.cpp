@@ -3,10 +3,12 @@
 #include <cstdlib>
 #include "hardware/pwm.h"
 
+
+
 //Constructor: Allocates memory for frame buffers and initializes PIO
 
-LED_String::LED_String(PIO pio_in, uint sm_in, uint pin_in, int32_t n) 
-    : pio(pio_in), sm(sm_in), pin(pin_in), numLEDs(n) 
+LED_String::LED_String(PIO pio_in, uint sm_in, uint pin_in, int32_t n, ColourOrder order = ColourOrder::GRB) 
+    : pio(pio_in), sm(sm_in), pin(pin_in), numLEDs(n), colour_order(order)
 {
     h_buf = new float[numLEDs];
     s_buf = new float[numLEDs];
@@ -71,9 +73,6 @@ void LED_String::write_pixel_hsv(int index, float h, float s, float v) {
 }
 
 
-/**
- * Pushes the buffer to the hardware and applies the decay (fade out)
- */
 void LED_String::paint_string() {
     for (int i = 0; i < numLEDs; i++) {
         uint8_t r_out, g_out, b_out;
@@ -81,11 +80,25 @@ void LED_String::paint_string() {
         // Convert the "Live" HSV state to RGB just for the hardware
         hsv_to_rgb(h_buf[i], s_buf[i], v_buf[i], r_out, g_out, b_out);
 
-        uint32_t grb = ((uint32_t)(r_out) << 16) | 
-                       ((uint32_t)(g_out) << 8)  | 
-                        (uint32_t)(b_out);
-        
-        pio_sm_put_blocking(pio, sm, grb << 8u);
+        uint32_t pixel;
+
+        switch (colour_order)
+        {
+            case ColourOrder::RGB:
+                pixel = ((uint32_t)r_out << 16) |
+                        ((uint32_t)g_out << 8)  |
+                        (uint32_t)b_out;
+                break;
+
+            case ColourOrder::GRB:
+            default:
+                pixel = ((uint32_t)g_out << 16) |
+                        ((uint32_t)r_out << 8)  |
+                        (uint32_t)b_out;
+                break;
+        }
+
+        pio_sm_put_blocking(pio, sm, pixel << 8u);
 
         // Apply decay to the Value (brightness) for the trail effect
         v_buf[i] *= decay;
@@ -95,7 +108,6 @@ void LED_String::paint_string() {
     }
     sleep_us(100);
 }
-
 
 // give a pixel a location in 3d space
 void LED_String::map_pixel(int index, float x, float y, float z) {
