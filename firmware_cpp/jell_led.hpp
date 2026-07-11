@@ -24,7 +24,8 @@
 
 enum class ColourOrder {
     RGB,
-    GRB
+    GRB,
+    GBR
 };
 
 

@@ -96,6 +96,12 @@ void LED_String::paint_string() {
                         ((uint32_t)r_out << 8)  |
                         (uint32_t)b_out;
                 break;
+            
+            case ColourOrder::GBR:
+                pixel = ((uint32_t)g_out << 16) |
+                        ((uint32_t)b_out << 8)  |
+                        (uint32_t)r_out;
+                break;
         }
 
         pio_sm_put_blocking(pio, sm, pixel << 8u);
