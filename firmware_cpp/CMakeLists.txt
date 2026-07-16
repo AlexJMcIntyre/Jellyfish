@@ -44,7 +44,8 @@ add_executable(JellyOS
         jell_canvas.cpp
         jell_effects.cpp
         jell_field.cpp
-    )
+        jell_config.hpp
+)
 
 pico_generate_pio_header(JellyOS ${CMAKE_CURRENT_LIST_DIR}/ws2812.pio)
 pico_generate_pio_header(JellyOS ${CMAKE_CURRENT_LIST_DIR}/i2s_microphone.pio)
