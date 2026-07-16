@@ -1,0 +1,56 @@
+name: Build firmware
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Add Pico SDK import helper
+        run: cp .github/pico_sdk_import.cmake firmware_cpp/pico_sdk_import.cmake
+
+      - uses: samyarsadat/Pico-Build-Action@v1
+        with:
+          source_dir: firmware_cpp
+          output_dir: build
+          board: pico2_w
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: JellyOS
+          path: firmware_cpp/build/JellyOS.uf2
+
+  release:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Increment patch version
+        id: version
+        run: |
+          IFS=. read -r major minor patch <<< "$(git describe --tags --abbrev=0 | sed 's/^v//')"
+          version="v${major}.${minor}.$((patch + 1))"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Releasing $version"
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "$VERSION" release-files/JellyOS.uf2 \
+            --title "JellyOS $VERSION" \
+            --generate-notes \
+            --target "$GITHUB_SHA"
