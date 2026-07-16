@@ -1,5 +1,6 @@
 #include "jell_effects.hpp"
 #include <cstdio>
+#include "jell_config.hpp"
 
 void effect_miclevelCheck(
     Canvas& canvas,
@@ -67,7 +68,7 @@ void effect_LEDchanneltest(Canvas& canvas)
 
 void effect_micNField(Canvas& canvas, const AudioFrame& audio, float time)
 {
-    for (int i = 0; i < 96; i++)
+    for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_RING; i++)
     {
         Point3 p = canvas.ring_position(i);
 
@@ -82,7 +83,7 @@ void effect_micNField(Canvas& canvas, const AudioFrame& audio, float time)
 
     for (int s = 0; s < 4; s++)
     {
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_RING; i++)
         {
             Point3 p = canvas.spoke_position(s, i);
 
@@ -93,7 +94,7 @@ void effect_micNField(Canvas& canvas, const AudioFrame& audio, float time)
                 i,
                 220.0f + (n * n * 100),
                 1.0f,
-                audio.smoothed_level);
+                audio.smoothed_level * JellConfig::BRIGHTNESS_MODIFIER);
         }
     }
 
@@ -115,7 +116,7 @@ void effect_ambientNField(Canvas& canvas, float time, float noisescale, float hu
     //float huerange = 360.0f;
     //float timescale = 0.1f;
 
-    for (int i = 0; i < 96; i++)
+    for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_RING; i++)
     {
         Point3 p = canvas.ring_position(i);
 
@@ -131,7 +132,7 @@ void effect_ambientNField(Canvas& canvas, float time, float noisescale, float hu
 
     for (int s = 0; s < 4; s++)
     {
-        for (int i = 0; i < 12; i++)
+        for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_EACH_TENTACLE; i++)
         {
             Point3 p = canvas.spoke_position(s, i);
 

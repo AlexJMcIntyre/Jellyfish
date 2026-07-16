@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "jell_config.hpp"
+
 Canvas::Canvas(
     LedString& ring,
     LedString* spokes,
@@ -124,13 +126,13 @@ void Canvas::ring_pixel_hsv(int pixel, float h, float s, float v)
 
 void Canvas::all_pixels_hsv(float h, float s, float v)
 {
-    for (int i = 0; i < 96; i++)
+    for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_RING; i++)
     {
         ring.write_pixel_hsv(i, h, s, v);
     }
     for (int i = 0; i < 4; i++)
     {
-        for (int j = 0; j < 12; j++)
+        for (int j = 0; j < JellConfig::NUMBER_LEDS_IN_EACH_TENTACLE; j++)
         {
             spokes[i].write_pixel_hsv(j, h, s, v);
         }
