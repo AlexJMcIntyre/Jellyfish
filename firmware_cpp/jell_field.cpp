@@ -1,5 +1,4 @@
 #include "jell_field.hpp"
-
 #include <cmath>
 
 namespace

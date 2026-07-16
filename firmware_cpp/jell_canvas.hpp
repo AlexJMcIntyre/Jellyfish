@@ -1,5 +1,7 @@
 #pragma once
 #include "jell_led.hpp"
+#include "jell_pmw_light.hpp"
+
 
 struct Point3
 {
@@ -12,9 +14,9 @@ class Canvas
 {
 public:
     Canvas(
-        LED_String& ring,
-        LED_String* spokes,
-        PWM_Light* noodles);
+        LedString& ring,
+        LedString* spokes,
+        PwmLight* noodles);
 
         Point3 ring_position(int pixel) const;
         Point3 spoke_position(int spoke, int pixel) const;
@@ -51,9 +53,9 @@ public:
             float level);
 
     private:
-        LED_String& ring;
-        LED_String* spokes;
-        PWM_Light* noodles;
+        LedString& ring;
+        LedString* spokes;
+        PwmLight* noodles;
 
         Point3 bounds_max;
         Point3 bounds_min;

@@ -38,11 +38,12 @@ pico_sdk_init()
 
 add_executable(JellyOS 
     JellyOS.cpp
-    jell_led.cpp 
-    jell_audio.cpp
-    jell_canvas.cpp
-    jell_effects.cpp
-    jell_field.cpp
+        jell_audio.cpp
+        jell_led.hpp
+        jell_pmw_light.hpp
+        jell_canvas.cpp
+        jell_effects.cpp
+        jell_field.cpp
     )
 
 pico_generate_pio_header(JellyOS ${CMAKE_CURRENT_LIST_DIR}/ws2812.pio)
