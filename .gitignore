@@ -1,0 +1,4 @@
+.DS_Store
+.idea
+firmware_cpp/cmake-build-debug/
+firmware_cpp/pico_sdk_import.cmake
