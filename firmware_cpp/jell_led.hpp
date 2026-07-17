@@ -77,7 +77,11 @@ public:
         if (index >= 0 && index < numLEDs)
         {
             h_buf[index] = fmodf(h, 360.0f); // Ensure hue is in bounds
-            if (h_buf[index] < 0) h_buf[index] += 360.0f;
+
+            if (h_buf[index] < 0)
+            {
+                h_buf[index] += 360.0f;
+            }
 
             s_buf[index] = std::clamp(s, 0.0f, 1.0f);
             v_buf[index] = std::clamp(v, 0.0f, 1.0f);

@@ -11,7 +11,6 @@ void effect_miclevelCheck(
     canvas.show();
 }
 
-
 void effect_LEDchanneltest(Canvas& canvas)
 {
     static int frame = 0;
@@ -32,7 +31,6 @@ void effect_LEDchanneltest(Canvas& canvas)
     {
         canvas.all_pixels_hsv(240.0f, 1.0f, 1.0f);
     }
-
 
     if (state % 4 == 0)
     {
@@ -83,7 +81,7 @@ void effect_micNField(Canvas& canvas, const AudioFrame& audio, float time)
 
     for (int s = 0; s < 4; s++)
     {
-        for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_RING; i++)
+        for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_EACH_TENTACLE; i++)
         {
             Point3 p = canvas.spoke_position(s, i);
 

@@ -25,6 +25,7 @@ public:
     static constexpr auto LED_ORDER_TENTACLE  = ColourOrder::RGB;
 
     static constexpr float BRIGHTNESS_MODIFIER = 1.0f;
+
     static constexpr auto DEFAULT_DISPLAY_MODE = DisplayMode::Mic_NField;
 };
 #endif

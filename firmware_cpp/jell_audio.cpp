@@ -1,7 +1,8 @@
 #include "jell_audio.hpp"
 #include "i2s_microphone.pio.h"
 #include "math.h"
-
+#include <iostream>
+#include <stdio.h>
 Microphone::Microphone(int32_t samp_size)
 {
     sample_size = samp_size;
@@ -98,6 +99,10 @@ AudioFrame Microphone::capture()
     //return completed_buffer;
     AudioFrame frame;
 
+
+
+
+
     frame.samples = completed_buffer;
     int32_t* samples = frame.samples;
 
@@ -114,7 +119,7 @@ AudioFrame Microphone::capture()
         // Shift left to force the 24th bit into the 32nd bit slot, 
         // then arithmetic shift right back down to sign-extend automatically.
         samples[i] = (samples[i] << 8) >> 8;
-    
+        printf("i = %d\n", samples[i]);
         sum += samples[i];
     }
 
@@ -165,7 +170,7 @@ AudioFrame Microphone::capture()
     if (smoothed_level < 0.05)
         smoothed_level = 0.05f;
 
-        
+
     float peak_decay = 0.99f;
     if ((frame.level > smoothed_peak) and (frame.level > 0.5))
         smoothed_peak = frame.level;

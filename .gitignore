@@ -2,3 +2,5 @@
 .idea
 firmware_cpp/cmake-build-debug/
 firmware_cpp/pico_sdk_import.cmake
+firmware_cpp/tests/build-tests
+firmware_cpp/tests/Testing
