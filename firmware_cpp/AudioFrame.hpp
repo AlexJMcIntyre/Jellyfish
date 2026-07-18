@@ -47,16 +47,12 @@ public:
 
         // Calculate RMS
 
-
-        // printf("Sum of squares: %lld \n", sum_of_squares);
-        // printf("Sample size: %d \n", sample_count);
-
         float rms = sqrtf((float)sum_of_squares / sample_count);
-        // printf("RMS: %f \n", rms);
+
 
         float decay_rate = 0.002f;
 
-        // printf("RMS max: %f \n", max);
+
         if (rms > max)
         {
             printf("Updating max to rms %f \n", rms);

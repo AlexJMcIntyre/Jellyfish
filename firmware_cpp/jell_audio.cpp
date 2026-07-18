@@ -127,8 +127,7 @@ AudioFrame Microphone::capture()
     AudioFrame frame = AudioFrame(samples, sample_size, frame_mean, rms_min, rms_max, smoothed_peak, smoothed_level);
     rms_min = frame.rms_min;
     rms_max = frame.rms_max;
-    printf("MAx Accoring to frame: %f \n", frame.rms_max);
-    printf("MAx Accoring to mic: %f \n", frame.rms_max);
+
     smoothed_level = frame.rms_smoothed_level;
     smoothed_peak = frame.rms_smoothed_peak;
     return frame;
