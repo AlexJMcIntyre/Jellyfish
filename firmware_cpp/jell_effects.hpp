@@ -10,5 +10,8 @@ void effect_miclevelCheck(
 void effect_LEDchanneltest(Canvas& canvas);
 
 void effect_micNField(Canvas& canvas, const AudioFrame& audio, float time);
-    
+
+void effect_micFft(Canvas& canvas, const AudioFrame& audio, float time);
+
 void effect_ambientNField(Canvas& canvas, float time, float noisescale, float huebase, float huerange, float timescale);
+

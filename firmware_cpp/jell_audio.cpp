@@ -122,14 +122,12 @@ AudioFrame Microphone::capture()
     {
         samples[i] -= frame_mean;
     }
-
-    printf("Max before frame: %f \n", rms_max);
     AudioFrame frame = AudioFrame(samples, sample_size, frame_mean, rms_min, rms_max, smoothed_peak, smoothed_level);
-    rms_min = frame.rms_min;
-    rms_max = frame.rms_max;
+    rms_min = frame.rms.min;
+    rms_max = frame.rms.max;
 
-    smoothed_level = frame.rms_smoothed_level;
-    smoothed_peak = frame.rms_smoothed_peak;
+    smoothed_level = frame.rms.smoothed_level;
+    smoothed_peak = frame.rms.smoothed_peak;
     return frame;
 }
 

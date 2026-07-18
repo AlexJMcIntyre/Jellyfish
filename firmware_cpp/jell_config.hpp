@@ -12,6 +12,7 @@ public:
         Mic_NField,
         Ambient_Rainbow,
         Ambient_Deepsea,
+        Mic_Fft,
 
         Count
     };
@@ -26,6 +27,8 @@ public:
 
     static constexpr float BRIGHTNESS_MODIFIER = 1.0f;
 
-    static constexpr auto DEFAULT_DISPLAY_MODE = DisplayMode::Mic_NField;
+    static constexpr auto DEFAULT_DISPLAY_MODE = DisplayMode::Mic_Fft;
+
+    static float current_hue;
 };
 #endif

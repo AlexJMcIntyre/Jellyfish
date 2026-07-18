@@ -59,10 +59,10 @@ TEST(BasicTest, Rms)
 
     AudioFrame frame = AudioFrame(samples, 8, 100, 64000, 90000, 0, 0);
 
-    EXPECT_NEAR(frame.rms_rms, 744.932556, 0.01);
-    EXPECT_NEAR(frame.rms_smoothed_level, 0.05, 0.01);
+    EXPECT_NEAR(frame.rms.value, 744.932556, 0.01);
+    EXPECT_NEAR(frame.rms.smoothed_level, 0.05, 0.01);
 
-    EXPECT_EQ(frame.rms_max, 90000);
+    EXPECT_EQ(frame.rms.max, 90000);
 
 }
 
@@ -82,5 +82,5 @@ TEST(BasicTest, RmsMax)
 
     AudioFrame frame = AudioFrame(samples, 8, 10000, 64000, 90000, 0, 0);
 
-    EXPECT_EQ(frame.rms_max, 353553408);
+    EXPECT_EQ(frame.rms.max, 353553408);
 }

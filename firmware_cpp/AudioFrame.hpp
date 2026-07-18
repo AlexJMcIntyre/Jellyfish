@@ -4,6 +4,19 @@
 #include <cstdint>
 #include <cstdio>
 
+struct RmsData
+{
+    float value;
+
+    float min;
+
+    float max;
+
+    float smoothed_peak;
+
+    float smoothed_level;
+};
+
 class AudioFrame
 {
 public:
@@ -13,17 +26,7 @@ public:
     int32_t mean;
     float level;
 
-    float rms_rms;
-
-    // RmsDa a* rms;
-
-    float rms_min;
-
-    float rms_max;
-
-    float rms_smoothed_peak;
-
-    float rms_smoothed_level;
+    RmsData rms{};
 
     AudioFrame(int32_t* samples, int sample_count, int32_t mean, float min, float max, float smoothed_peak, float smoothed_level)
     {
@@ -47,31 +50,31 @@ public:
 
         // Calculate RMS
 
-        float rms = sqrtf((float)sum_of_squares / sample_count);
+        float current_rms = sqrtf((float)sum_of_squares / sample_count);
 
 
-        float decay_rate = 0.01f;
+        float decay_rate = 0.002f;
 
-        if (rms > max)
+        if (current_rms > max)
         {
-            printf("Updating max to rms %f \n", rms);
-            max = rms;
+            printf("Updating max to rms %f \n", current_rms);
+            max = current_rms;
         }
         else
         {
             printf("Updating max based on decay \n");
             printf("current max %f \n", max);
-            printf("current rms %f \n", rms);
-            max += (rms - max) * decay_rate;
+            printf("current rms %f \n", current_rms);
+            max += (current_rms - max) * decay_rate;
             printf("new max%f \n", max);
         }
 
-        if (rms < min)
-            min = rms;
+        if (current_rms < min)
+            min = current_rms;
         else
-            min += (rms - min) * decay_rate;
+            min += (current_rms - min) * decay_rate;
 
-        level = (rms - min) / (max - min);
+        level = (current_rms - min) / (max - min);
         // Clamp the adaptive range
         if (min > 64000.0f)
             min = 64000.0f;
@@ -94,12 +97,11 @@ public:
         else
             smoothed_peak = smoothed_peak * peak_decay;
 
-
-        this->rms_min = min;
-        this->rms_max = max;
-        this->rms_smoothed_peak = smoothed_peak;
-        this->rms_smoothed_level = smoothed_level;
-        this->rms_rms = rms;
+        this->rms.min = min;
+        this->rms.max = max;
+        this->rms.smoothed_peak = smoothed_peak;
+        this->rms.smoothed_level = smoothed_level;
+        this->rms.value = current_rms;
     }
 };
 #endif //JELLYOS_AUDIOFRAME_HPP

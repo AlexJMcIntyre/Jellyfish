@@ -22,6 +22,21 @@ public:
         {
             fft_data[i] = Complex(samples[i], 0.0);
         }
+
+        constexpr float pi = 3.14159265358979323846f;
+
+        // for (size_t i = 0; i < sampleSize; ++i)
+        // {
+        //     const float window =
+        //         0.5f -
+        //         0.5f * std::cos(
+        //             (2.0f * pi * static_cast<float>(i)) /
+        //             static_cast<float>(sampleSize - 1)
+        //         );
+        //
+        //     fft_data[i] *= window;
+        // }
+
         this->data = fft_data;
     }
 
@@ -35,7 +50,6 @@ public:
         for (std::size_t i = 0; i < data.size() / 2; ++i)
         {
             const double magnitude = std::abs(data[i]);
-            printf("bin %zu: magnitude=%f\n", i, magnitude);
             magnitudes[i] = static_cast<float>(magnitude);
         }
 

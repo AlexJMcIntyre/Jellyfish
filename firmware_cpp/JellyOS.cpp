@@ -87,6 +87,14 @@ void previous_mode()
                 break;
             }
 
+        case JellConfig::DisplayMode::Mic_Fft:
+            {
+                AudioFrame audio = mic.capture();
+                float time = time_us_64() * 1e-6f;
+                effect_micFft(canvas, audio, time);
+                break;
+            }
+
         case JellConfig::DisplayMode::Ambient_Rainbow:
             {
                 float time = time_us_64() * 1e-6f;
