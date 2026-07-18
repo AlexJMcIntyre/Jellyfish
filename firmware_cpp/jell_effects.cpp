@@ -12,7 +12,8 @@ void effect_miclevelCheck(
     const AudioFrame& audio)
 {
     printf(">Level: %f, RMS: %f, RMS_Min: %f, RMS_Max: %f, smoothed_peak: %f, smoothed_level: %f\n",
-                       audio.level, audio.rms.value, audio.rms.min, audio.rms.max, audio.rms.smoothed_peak, audio.rms.smoothed_level);
+           audio.level, audio.rms.value, audio.rms.min, audio.rms.max, audio.rms.smoothed_peak,
+           audio.rms.smoothed_level);
     canvas.all_pixels_hsv(220.0f, 1.0f, audio.rms.smoothed_level);
     canvas.all_noodles_level(audio.rms.smoothed_level);
     canvas.show();
@@ -121,16 +122,24 @@ void effect_micFft(Canvas& canvas, const AudioFrame& audio, float time)
     static int frame = 0;
     static float hue1 = 0.0f;
     static float hue2 = 0.0f;
-    JellFFT fft = JellFFT(audio.samples, audio.sample_count);
-    std::vector<float> moo = fft.doIt();
-
-    moo.erase(moo.begin());
 
     constexpr float sample_rate = 36000.0f;
-
     constexpr size_t fft_size = 256;
-
     constexpr size_t band_count = 6;
+    constexpr float max_hue = 360.0f;
+
+    static std::array<float, band_count> smoothed_bands{};
+
+    constexpr float attack = 0.35f;
+    constexpr float release = 0.08f;
+
+    JellFFT fft(audio.samples, audio.sample_count);
+    std::vector<float> moo = fft.doIt();
+
+    if (!moo.empty())
+    {
+        moo.erase(moo.begin());
+    }
 
     std::array<float, band_count> bands{};
 
@@ -138,41 +147,56 @@ void effect_micFft(Canvas& canvas, const AudioFrame& audio, float time)
     {
         const size_t fft_bin = i + 1;
 
-        const float frequency = static_cast<float>(fft_bin) * sample_rate / static_cast<float>(fft_size);
+        const float frequency =
+            static_cast<float>(fft_bin) *
+            sample_rate /
+            static_cast<float>(fft_size);
 
         const float magnitude = moo[i];
 
         if (frequency < 500.0f)
         {
-            bands[0] += magnitude; // Bass: 141–500 Hz
+            bands[0] += magnitude;
         }
         else if (frequency < 1000.0f)
         {
-            bands[1] += magnitude; // Low mids: 500–1000 Hz
+            bands[1] += magnitude;
         }
         else if (frequency < 2000.0f)
         {
-            bands[2] += magnitude; // Mids: 1–2 kHz
+            bands[2] += magnitude;
         }
         else if (frequency < 4000.0f)
         {
-            bands[3] += magnitude; // Upper mids: 2–4 kHz
+            bands[3] += magnitude;
         }
         else if (frequency < 8000.0f)
         {
-            bands[4] += magnitude; // Presence: 4–8 kHz
+            bands[4] += magnitude;
         }
         else if (frequency <= 18000.0f)
         {
-            bands[5] += magnitude; // Treble: 8–18 kHz
+            bands[5] += magnitude;
         }
     }
 
-    constexpr float max_hue = 240.0f;
+    // Fast attack, slower release.
+    for (size_t band = 0; band < band_count; ++band)
+    {
+        const float smoothing =
+            bands[band] > smoothed_bands[band]
+                ? attack
+                : release;
 
+        smoothed_bands[band] +=
+            (bands[band] - smoothed_bands[band]) *
+            smoothing;
+    }
+
+    // Draw ring with each band's size proportional to its smoothed magnitude.
     float total_magnitude = 0.0f;
 
-    for (float magnitude : bands)
+    for (float magnitude : smoothed_bands)
     {
         total_magnitude += magnitude;
     }
@@ -180,39 +204,42 @@ void effect_micFft(Canvas& canvas, const AudioFrame& audio, float time)
     size_t start_led = 0;
     float cumulative_magnitude = 0.0f;
 
-    if (total_magnitude > 0.0f)
+    for (size_t band = 0; band < band_count; ++band)
     {
-        for (size_t band = 0; band < band_count; ++band)
-        {
-            cumulative_magnitude += bands[band];
+        cumulative_magnitude += smoothed_bands[band];
 
-            const size_t end_led =
-                (band == band_count - 1)
-                    ? JellConfig::NUMBER_LEDS_IN_RING
-                    : static_cast<size_t>(
+        const size_t end_led =
+            band == band_count - 1
+                ? JellConfig::NUMBER_LEDS_IN_RING
+                : static_cast<size_t>(
+                    std::round(
                         cumulative_magnitude /
                         total_magnitude *
-                        static_cast<float>(JellConfig::NUMBER_LEDS_IN_RING)
-                    );
+                        static_cast<float>(
+                            JellConfig::NUMBER_LEDS_IN_RING
+                        )
+                    )
+                );
 
-            const float hue =
-                static_cast<float>(band) *
-                max_hue /
-                static_cast<float>(band_count - 1);
+        const float hue =
+            static_cast<float>(band) *
+            max_hue /
+            static_cast<float>(band_count - 1);
 
-            for (size_t led = start_led; led < end_led; ++led)
-            {
-                canvas.ring_pixel_hsv(
+        for (size_t led = start_led; led < end_led; ++led)
+        {
+            canvas.ring_pixel_hsv(
                 led,
                 hue,
                 1.0f,
-                audio.rms.smoothed_level);
-            }
-
-            start_led = end_led;
+                audio.rms.smoothed_level
+            );
         }
+
+        start_led = end_led;
     }
 
+    // Rank bands by smoothed magnitude.
     std::array<size_t, band_count> band_indexes{};
 
     std::iota(
@@ -224,42 +251,73 @@ void effect_micFft(Canvas& canvas, const AudioFrame& audio, float time)
     std::sort(
         band_indexes.begin(),
         band_indexes.end(),
-        [&bands](size_t a, size_t b)
+        [](size_t a, size_t b)
         {
-            return bands[a] > bands[b];
+            return smoothed_bands[a] > smoothed_bands[b];
         }
     );
 
+    // Update tentacle hues occasionally.
+    if (frame == 0 || frame % 120 == 0)
+    {
+        hue1 =
+            static_cast<float>(band_indexes[0]) *
+            max_hue /
+            static_cast<float>(band_count - 1);
 
+        hue2 =
+            static_cast<float>(band_indexes[1]) *
+            max_hue /
+            static_cast<float>(band_count - 1);
+    }
 
-        for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_EACH_TENTACLE; i++)
-        {
-            if (frame == 0 || frame % 120 == 0)
-                hue1 = static_cast<float>(band_indexes[0]) * max_hue / static_cast<float>(band_count - 1);
-            canvas.spoke_pixel_hsv(0,i,0,1.0f,audio.rms.smoothed_level);
-        }
-        for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_EACH_TENTACLE; i++)
-        {
-            if (frame == 0 || frame % 120 == 0)
-                hue2 = static_cast<float>(band_indexes[1]) * max_hue / static_cast<float>(band_count - 1);
-            canvas.spoke_pixel_hsv(1,i, hue2,1.0f,audio.rms.smoothed_level);
-        }
-        for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_EACH_TENTACLE; i++)
-        {
-            canvas.spoke_pixel_hsv(2,i,hue1,1.0f,audio.rms.smoothed_level);
-        }
-        for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_EACH_TENTACLE; i++)
-        {
-            canvas.spoke_pixel_hsv(3,i, hue2,1.0f,audio.rms.smoothed_level);
-        }
+    for (int i = 0;
+         i < JellConfig::NUMBER_LEDS_IN_EACH_TENTACLE;
+         ++i)
+    {
+        canvas.spoke_pixel_hsv(
+            0,
+            i,
+            hue1,
+            1.0f,
+            audio.rms.smoothed_level
+        );
 
+        canvas.spoke_pixel_hsv(
+            1,
+            i,
+            hue2,
+            1.0f,
+            audio.rms.smoothed_level
+        );
 
-    float pwml = audio.rms.smoothed_level * 2;
+        canvas.spoke_pixel_hsv(
+            2,
+            i,
+            hue1,
+            1.0f,
+            audio.rms.smoothed_level
+        );
 
-    if (pwml > 1.0f)
-        pwml = 1.0f;
+        canvas.spoke_pixel_hsv(
+            3,
+            i,
+            hue2,
+            1.0f,
+            audio.rms.smoothed_level
+        );
+    }
 
-    canvas.all_noodles_level(pwml);
+    float pwm_level =
+        audio.rms.smoothed_level * 2.0f;
+
+    if (pwm_level > 1.0f)
+    {
+        pwm_level = 1.0f;
+    }
+
+    canvas.all_noodles_level(pwm_level);
+
     frame++;
     canvas.show();
 }
@@ -281,7 +339,7 @@ void effect_ambientNField(Canvas& canvas, float time, float noisescale, float hu
             1.0f,
             f_b);
     }
-    
+
     for (int s = 0; s < 4; s++)
     {
         for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_EACH_TENTACLE; i++)
