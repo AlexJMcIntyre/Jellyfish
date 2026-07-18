@@ -50,8 +50,7 @@ public:
         float rms = sqrtf((float)sum_of_squares / sample_count);
 
 
-        float decay_rate = 0.002f;
-
+        float decay_rate = 0.01f;
 
         if (rms > max)
         {
