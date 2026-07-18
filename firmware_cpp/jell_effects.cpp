@@ -250,7 +250,7 @@ void effect_micFft(Canvas& canvas, const AudioFrame& audio, float time)
         }
         for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_EACH_TENTACLE; i++)
         {
-            canvas.spoke_pixel_hsv(3,i, ,1.0f,audio.rms.smoothed_level);
+            canvas.spoke_pixel_hsv(3,i, hue2,1.0f,audio.rms.smoothed_level);
         }
 
 
