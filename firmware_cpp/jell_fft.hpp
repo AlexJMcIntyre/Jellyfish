@@ -25,17 +25,17 @@ public:
 
         constexpr float pi = 3.14159265358979323846f;
 
-        // for (size_t i = 0; i < sampleSize; ++i)
-        // {
-        //     const float window =
-        //         0.5f -
-        //         0.5f * std::cos(
-        //             (2.0f * pi * static_cast<float>(i)) /
-        //             static_cast<float>(sampleSize - 1)
-        //         );
-        //
-        //     fft_data[i] *= window;
-        // }
+        for (size_t i = 0; i < sampleSize; ++i)
+        {
+            const float window =
+                0.5f -
+                0.5f * std::cos(
+                    (2.0f * pi * static_cast<float>(i)) /
+                    static_cast<float>(sampleSize - 1)
+                );
+
+            fft_data[i] *= window;
+        }
 
         this->data = fft_data;
     }
