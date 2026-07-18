@@ -116,69 +116,97 @@ void effect_micNField(Canvas& canvas, const AudioFrame& audio, float time)
 
 void effect_micFft(Canvas& canvas, const AudioFrame& audio, float time)
 {
-    static float current_hue = 0;
 
     JellFFT fft = JellFFT(audio.samples, audio.sample_count);
     std::vector<float> moo = fft.doIt();
 
     moo.erase(moo.begin());
-    moo.erase(moo.begin());
 
-    constexpr size_t band_count = 12;
+    constexpr float sample_rate = 36000.0f;
+
+    constexpr size_t fft_size = 256;
+
+    constexpr size_t band_count = 6;
 
     std::array<float, band_count> bands{};
 
-    for (size_t bin = 0; bin < moo.size(); ++bin)
+    for (size_t i = 0; i < moo.size(); ++i)
     {
-        const float position = static_cast<float>(bin) / static_cast<float>(moo.size());
 
-        size_t band = static_cast<size_t>(
-            std::sqrt(position) * band_count
-        );
+        const size_t fft_bin = i + 1;
 
-        band = std::min(band, band_count - 1);
+        const float frequency = static_cast<float>(fft_bin) * sample_rate / static_cast<float>(fft_size);
 
-        bands[band] += moo[bin];
+        const float magnitude = moo[i];
+
+        if (frequency < 500.0f)
+        {
+            bands[0] += magnitude; // Bass: 141–500 Hz
+        }
+        else if (frequency < 1000.0f)
+        {
+            bands[1] += magnitude; // Low mids: 500–1000 Hz
+        }
+        else if (frequency < 2000.0f)
+        {
+            bands[2] += magnitude; // Mids: 1–2 kHz
+        }
+        else if (frequency < 4000.0f)
+        {
+            bands[3] += magnitude; // Upper mids: 2–4 kHz
+        }
+        else if (frequency < 8000.0f)
+        {
+            bands[4] += magnitude; // Presence: 4–8 kHz
+        }
+        else if (frequency <= 18000.0f)
+        {
+            bands[5] += magnitude; // Treble: 8–18 kHz
+        }
     }
 
-    const auto strongest= std::max_element(bands.begin(), bands.end());
+    const size_t leds_per_band = JellConfig::NUMBER_LEDS_IN_RING / band_count;
 
-    const size_t strongest_band = std::distance(bands.begin(), strongest);
 
-    float target_hue = static_cast<float>(strongest_band) / static_cast<float>(band_count - 1) * 180.0f;
 
-    float hue_difference = target_hue - current_hue;
+    // const auto strongest_it = std::max_element(bands.begin(), bands.end());
 
-    // Hue wraps around: 0 and 180 are adjacent.
-    if (hue_difference > 90.0f)
+    // const size_t strongest_band = std::distance(bands.begin(), strongest_it);
+
+    constexpr float max_hue = 240.0f;
+
+    // const float hue = strongest_band * (max_hue / (band_count - 1));
+
+    const auto max_it = std::max_element(bands.begin(), bands.end());
+
+    const float max_band = *max_it;
+
+    if (max_band > 0.0f)
     {
-        hue_difference -= 180.0f;
-    }
-    else if (hue_difference < -90.0f)
-    {
-        hue_difference += 180.0f;
-    }
-
-    constexpr float hue_smoothing = 0.15f;
-
-    current_hue += hue_difference * hue_smoothing;
-
-    if (current_hue < 0.0f)
-    {
-        current_hue += 180.0f;
-    }
-    else if (current_hue >= 180.0f)
-    {
-        current_hue -= 180.0f;
+        for (float& band : bands)
+        {
+            band /= max_band;
+        }
     }
 
-    for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_RING; i++)
+    for (int i = 0; i < band_count; i++)
     {
-        canvas.ring_pixel_hsv(
-            i,
-            current_hue,
+
+        const float hue = i * (max_hue / (band_count - 1));
+
+        const size_t start_led = i * leds_per_band;
+
+        const size_t end_led = (i == band_count - 1) ? JellConfig::NUMBER_LEDS_IN_RING : start_led + leds_per_band;
+
+        for (size_t led = start_led; led < end_led; ++led)
+
+        {
+            canvas.ring_pixel_hsv(
+            led,
+            hue,
             1.0f,
-            audio.rms.smoothed_level);
+            bands[i]);
+        }
     }
 
     float pwml = audio.rms.smoothed_level * 2;
