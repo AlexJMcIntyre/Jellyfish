@@ -6,7 +6,7 @@
 #define JELLYOS_JELL_FFT_HPP
 #include <cstdint>
 
-#include "fft.h"
+#include "simple_fft/fft.h"
 
 class JellFFT
 {
@@ -28,16 +28,14 @@ public:
     std::vector<float> doIt()
     {
         const char* error = nullptr;
-
         simple_fft::FFT(data, data.size(), error);
 
         std::vector<float> magnitudes(data.size() / 2);
+
         for (std::size_t i = 0; i < data.size() / 2; ++i)
         {
             const double magnitude = std::abs(data[i]);
-
             printf("bin %zu: magnitude=%f\n", i, magnitude);
-
             magnitudes[i] = static_cast<float>(magnitude);
         }
 

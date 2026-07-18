@@ -1,21 +1,7 @@
 #pragma once
+#include "AudioFrame.hpp"
 #include "hardware/pio.h"
 #include "hardware/dma.h"
-
-struct AudioFrame
-{
-    int32_t* samples;
-    int sample_count;
-
-    int32_t mean;
-    float rms;
-    float level;
-
-    float rms_min; //temp copies for graphing
-    float rms_max; 
-    float smoothed_peak;
-    float smoothed_level;
-};
 
 class Microphone
 {

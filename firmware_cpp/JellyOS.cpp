@@ -68,8 +68,6 @@ void previous_mode()
         case JellConfig::DisplayMode::micLevelCheck:
             {
                 AudioFrame audio = mic.capture();
-                printf(">Level: %f, RMS: %f, RMS_Min: %f, RMS_Max: %f, smoothed_peak: %f, smoothed_level: %f\n",
-                       audio.level, audio.rms, audio.rms_min, audio.rms_max, audio.smoothed_peak, audio.smoothed_level);
 
                 effect_miclevelCheck(canvas, audio);
                 break;

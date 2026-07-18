@@ -45,9 +45,10 @@ add_executable(JellyOS
         jell_effects.cpp
         jell_field.cpp
         jell_config.hpp
-        fft_settings.h
-        fft.h
+        simple_fft/fft_settings.h
+        simple_fft/fft.h
         jell_fft.hpp
+        AudioFrame.hpp
 )
 
 pico_generate_pio_header(JellyOS ${CMAKE_CURRENT_LIST_DIR}/ws2812.pio)

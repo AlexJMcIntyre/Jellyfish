@@ -6,8 +6,10 @@ void effect_miclevelCheck(
     Canvas& canvas,
     const AudioFrame& audio)
 {
-    canvas.all_pixels_hsv(220.0f, 1.0f, audio.smoothed_level);
-    canvas.all_noodles_level(audio.smoothed_level);
+    printf(">Level: %f, RMS: %f, RMS_Min: %f, RMS_Max: %f, smoothed_peak: %f, smoothed_level: %f\n",
+                       audio.level, audio.rms_rms, audio.rms_min, audio.rms_max, audio.rms_smoothed_peak, audio.rms_smoothed_level);
+    canvas.all_pixels_hsv(220.0f, 1.0f, audio.rms_smoothed_level);
+    canvas.all_noodles_level(audio.rms_smoothed_level);
     canvas.show();
 }
 
@@ -66,17 +68,20 @@ void effect_LEDchanneltest(Canvas& canvas)
 
 void effect_micNField(Canvas& canvas, const AudioFrame& audio, float time)
 {
+    // printf(">Level: %f, RMS: %f, RMS_Min: %f, RMS_Max: %f, smoothed_peak: %f, smoothed_level: %f\n",
+    //                audio.level, audio.rms_rms, audio.rms_min, audio.rms_max, audio.rms_smoothed_peak, audio.rms_smoothed_level);
     for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_RING; i++)
     {
         Point3 p = canvas.ring_position(i);
 
-        float n = Field::noise(p, 1.0f, audio.smoothed_level + time * .3);
+
+        float n = Field::noise(p, 1.0f, audio.rms_smoothed_level + time * .3);
 
         canvas.ring_pixel_hsv(
             i,
             220.0f + (n * n * 100),
             1.0f,
-            audio.smoothed_level);
+            audio.rms_smoothed_level);
     }
 
     for (int s = 0; s < 4; s++)
@@ -85,18 +90,18 @@ void effect_micNField(Canvas& canvas, const AudioFrame& audio, float time)
         {
             Point3 p = canvas.spoke_position(s, i);
 
-            float n = Field::noise(p, 0.5f, audio.smoothed_level + time * .3);
+            float n = Field::noise(p, 0.5f, audio.rms_smoothed_level + time * .3);
 
             canvas.spoke_pixel_hsv(
                 s,
                 i,
                 220.0f + (n * n * 100),
                 1.0f,
-                audio.smoothed_level * JellConfig::BRIGHTNESS_MODIFIER);
+                audio.rms_smoothed_level * JellConfig::BRIGHTNESS_MODIFIER);
         }
     }
 
-    float pwml = audio.smoothed_level * 2;
+    float pwml = audio.rms_smoothed_level * 2;
 
     if (pwml > 1.0f)
         pwml = 1.0f;
@@ -108,11 +113,7 @@ void effect_micNField(Canvas& canvas, const AudioFrame& audio, float time)
 
 void effect_ambientNField(Canvas& canvas, float time, float noisescale, float huebase, float huerange, float timescale)
 {
-    //float noisescale = 1.0f;
     float field_offset = 1000.0;
-    //float huebase = 220.0f;
-    //float huerange = 360.0f;
-    //float timescale = 0.1f;
 
     for (int i = 0; i < JellConfig::NUMBER_LEDS_IN_RING; i++)
     {

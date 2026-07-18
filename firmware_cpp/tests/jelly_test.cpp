@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include "../fft.h"
 #include "../jell_fft.hpp"
 
 TEST(BasicTest, ConstantSignal)

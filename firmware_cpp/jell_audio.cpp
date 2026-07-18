@@ -96,95 +96,42 @@ AudioFrame Microphone::capture()
             ? buffer_1
             : buffer_0;
 
-    //return completed_buffer;
-    AudioFrame frame;
 
+    int32_t* samples = completed_buffer;
 
-
-
-
-    frame.samples = completed_buffer;
-    int32_t* samples = frame.samples;
-
-    frame.sample_count = sample_size;
 
     // Convert unsigned 24-bit samples to signed
     int64_t sum = 0;
     
     // Pass 1: Convert to signed and calculate mean
-    for (int i = 0; i < frame.sample_count; i++)
+    for (int i = 0; i < sample_size; i++)
     {
         // samples[i] -= 0x800000;
 
-        // Shift left to force the 24th bit into the 32nd bit slot, 
+        // Shift left to force the 24th bit into the 32nd bit slot,
         // then arithmetic shift right back down to sign-extend automatically.
         samples[i] = (samples[i] << 8) >> 8;
-        printf("i = %d\n", samples[i]);
+
         sum += samples[i];
     }
 
     // Calculate the DC offset (mean)
-    frame.mean = sum / frame.sample_count;
+    int frame_mean = sum / sample_size;
 
-    // Pass 2: Remove DC offset and find peak
-    int32_t peak = 0;
-    int64_t sum_of_squares = 0;
-    for (int i = 0; i < frame.sample_count; i++)
+    for (int i = 0; i < sample_size; i++)
     {
-        samples[i] -= frame.mean;
-        if (abs(samples[i]) > peak)
-            peak = abs(samples[i]);
-        sum_of_squares += (int64_t)samples[i] * samples[i];
+        samples[i] -= frame_mean;
     }
 
-    // Calculate RMS
-    frame.rms = sqrtf((float)sum_of_squares / frame.sample_count);
-
-    float decay_rate = 0.002f;
-
-    if (frame.rms > rms_max)
-        rms_max = frame.rms;
-    else
-        rms_max += (frame.rms - rms_max) * decay_rate;
-
-    if (frame.rms < rms_min)
-        rms_min = frame.rms;
-    else
-        rms_min += (frame.rms - rms_min) * decay_rate;
-
-    frame.level = (frame.rms - rms_min) / (rms_max - rms_min);
-
-    // Clamp the adaptive range
-    if (rms_min > 64000.0f)
-        rms_min = 64000.0f;
-
-    if (rms_max < 90000.0f)
-        rms_max = 90000.0f;
-
-    float level_decay = 0.99f;
-    if (frame.level > smoothed_level)
-        smoothed_level = frame.level;
-    else
-        smoothed_level = smoothed_level*level_decay;
-
-    if (smoothed_level < 0.05)
-        smoothed_level = 0.05f;
-
-
-    float peak_decay = 0.99f;
-    if ((frame.level > smoothed_peak) and (frame.level > 0.5))
-        smoothed_peak = frame.level;
-    else
-        smoothed_peak = smoothed_peak*peak_decay;
-        
-    //copy persistant mic data for returrn in frame
-    frame.rms_min = rms_min;
-    frame.rms_max = rms_max;
-    frame.smoothed_peak = smoothed_peak;
-    frame.smoothed_level = smoothed_level;
-   
+    printf("Max before frame: %f \n", rms_max);
+    AudioFrame frame = AudioFrame(samples, sample_size, frame_mean, rms_min, rms_max, smoothed_peak, smoothed_level);
+    rms_min = frame.rms_min;
+    rms_max = frame.rms_max;
+    printf("MAx Accoring to frame: %f \n", frame.rms_max);
+    printf("MAx Accoring to mic: %f \n", frame.rms_max);
+    smoothed_level = frame.rms_smoothed_level;
+    smoothed_peak = frame.rms_smoothed_peak;
     return frame;
-
 }
 
 int Microphone::get_sample_size() const
